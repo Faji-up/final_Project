@@ -11,6 +11,7 @@ import random
 from datetime import datetime
 import time
 from datetime import timedelta
+import sqlite3
 
 ###########
 ################################################################
@@ -135,8 +136,10 @@ class Accounts():
         return self.school
 
     def add_product(self, product_img, product_name, product_price, product_quan, seller_address, seller_contact):
+        global product_index
         product = Products(product_img, product_name, product_price, product_quan, seller_address, seller_contact)
         self.prodcut_list.append(product)
+        product_index += 1
 
     def show_products(self):
         for items in self.prodcut_list:
@@ -158,8 +161,12 @@ class Accounts():
             cart_list.get(key).pack_forget()
 
     def show_user_products(self):
-        for items in self.prodcut_list:
-            items.show_my_product()
+        for i in range(len(self.prodcut_list)):
+            print(i)
+            if date == self.prodcut_list[i].time_of_deliver:
+                self.prodcut_list.remove(self.prodcut_list[i])
+            else:
+                self.prodcut_list[i].show_my_product()
 
     def show_my_transaction(self, name):
         if name == self.name:
@@ -242,9 +249,20 @@ class Products(Accounts):
         self.myproduct_price_f = Label(self.myproduct_container, text=self.product_price)
         self.myproduct_image_f = Label(self.myproduct_container, image=self.product_image)
         self.myproduct_name_f = Label(self.myproduct_container, text=self.product_name)
+        self.selfindex = product_index
+        self.remove_button = Button(self.myproduct_container, text='remove')
+
+        # date delivever
+        self.time_of_deliver = datetime.now().date().today() + timedelta(days=(int(_time.tm_wday) + 5))
+
+    def get_index(self):
+        return self.selfindex
 
     def show(self):
+        global product_frame
+        product_frame.bind("<Key>", self.move)
         index = user_index
+
         self.product_image_f.pack()
         self.product_name_f.pack()
         self.product_price_f.pack()
@@ -255,6 +273,10 @@ class Products(Accounts):
         self.buy_button.config(command=lambda: self._add_tocart())
         self.product_container.pack()
 
+    def move(self, event):
+        self.product_container.place(x=200, y=self.product_container.winfo_y() + 10)
+        window.update()
+
     def unshow(self):
         self.product_dt_f.pack_forget()
         self.myproduct_image_f.pack_forget()
@@ -263,6 +285,11 @@ class Products(Accounts):
         self.myproduct_quan_f.pack_forget()
         self.myproduct_address_f.pack_forget()
         self.myproduct_contact_f.pack_forget()
+        self.myproduct_container.pack_forget()
+        self.remove_button.pack_forget()
+
+    def unpack(self):
+        self.product_container.pack_forget()
         self.myproduct_container.pack_forget()
 
     def show_my_product(self):
@@ -273,6 +300,7 @@ class Products(Accounts):
         self.myproduct_address_f.pack()
         self.myproduct_contact_f.pack()
         self.myproduct_container.pack()
+        self.remove_button.pack()
 
     def wide_view(self, event):
 
@@ -309,7 +337,6 @@ class Products(Accounts):
             global trans_code
             code = ''
             quan = self.product_quan
-            time_of_deliver = datetime.now().date().today() + timedelta(days=(int(_time.tm_wday) + 5))
 
             for i in range(5):
                 code += str(trans_code[random.randint(0, 35)])
@@ -328,7 +355,7 @@ class Products(Accounts):
             payment = str(int(new_quan) * price)
             product_p_c = Label(self.cart_f, image=self.product_image)
             product_info_c = Label(self.cart_f,
-                                   text=f"Seller: {self.get_user_name()}\nProduct: {self.product_name}\nAmount: {self.product_price}\nQuantity: {quan}\nTransaction Code: {str(code)}\nPayment: {payment}\nDATE: {date}\nDATE OF DELIVER:{time_of_deliver}")
+                                   text=f"Seller: {self.get_user_name()}\nProduct: {self.product_name}\nAmount: {self.product_price}\nQuantity: {quan}\nTransaction Code: {str(code)}\nPayment: {payment}\nDATE: {date}\nDATE OF DELIVER:{self.time_of_deliver}")
 
             product_p_c.pack()
             product_info_c.pack()
@@ -337,7 +364,7 @@ class Products(Accounts):
             # save the transaction
             product_p_t = Label(self.transaction_f, image=self.product_image)
             product_info_t = Label(self.transaction_f,
-                                   text=f"Buyer: {list_a[user_index].get_user_name()}\nBuyer address:{list_a[user_index].get_user_address()}Product: {self.product_name}\nAmount: {self.product_price}\nQuantity: {quan}\nTransaction Code: {str(code)}\nPayment: {payment}\nDATE OF DELIVER:{time_of_deliver}")
+                                   text=f"Buyer: {list_a[user_index].get_user_name()}\nBuyer address:{list_a[user_index].get_user_address()}Product: {self.product_name}\nAmount: {self.product_price}\nQuantity: {quan}\nTransaction Code: {str(code)}\nPayment: {payment}\nDATE OF DELIVER:{self.time_of_deliver}")
             product_p_t.pack()
             product_info_t.pack()
             self.transaction_list.append(self.transaction_f)
@@ -387,7 +414,9 @@ class Products(Accounts):
 
     def get_quan(self):
         return self.product_quan
-############################################№##########
+
+
+################################################################
 
 def save_product(product_image, product_name, product_price, product_quan, seller_address, seller_contact):
     global product_index
@@ -398,7 +427,12 @@ def save_product(product_image, product_name, product_price, product_quan, selle
             product_image == None and product_name == "" and product_price == '' and product_quan == '' and seller_address == '' and seller_contact == ''):
 
         product = Products(product_image, product_name, product_price, product_quan, seller_address, seller_contact)
-
+        list_a[user_index].add_product(product_image,
+                                       product_name,
+                                       product_price,
+                                       product_quan,
+                                       seller_address,
+                                       seller_contact)
         list_p.append(product)
 
         info_save = {x: product}
@@ -406,18 +440,16 @@ def save_product(product_image, product_name, product_price, product_quan, selle
 
         product.show()
 
-
     else:
         return messagebox.showerror('error', 'error')
 
 
 def product_validation():
-    list_a[user_index].add_product(product_image,
-                                   upload_name_of_product.get(),
-                                   upload_price.get(),
-                                   upload_stock.get(),
-                                   upload_address.get(),
-                                   upload_contact.get())
+    save_product(product_image, upload_name_of_product.get(),
+                 upload_price.get(),
+                 upload_stock.get(),
+                 upload_address.get(),
+                 upload_contact.get())
 
 
 def upload_image_function():
@@ -431,14 +463,6 @@ def upload_image_function():
 
 def save_account(image, name, age, address, school, username, password):
     account = Accounts(image, name, age, address, school, username, password)
-    # user = {str('image'): image,str('name'): name,str('age'): age,str('address'): address,str('school'): school}
-    # users_LIST.append(user)
-    # acc = {str('username'): username,str('password'): password}
-    # accounts.append(acc)
-    # x = username + "=" + password
-    # info_save = {x: user}
-    # info.append(info_save)
-
     list_a.append(account)
 
 
@@ -500,6 +524,7 @@ def admin_tran(event):
 
 
 #######################   USERS
+
 
 def user():
     window.update()
@@ -642,7 +667,6 @@ def about():
     pass
 
 ################################################################
-
 # center the window
 def center_window(window, width, height, ):
     screen_width = window.winfo_screenwidth()
@@ -651,14 +675,12 @@ def center_window(window, width, height, ):
     y = (screen_heigth - height) // 2
     window.geometry(f"{width}x{height}+{x}+{y}")
 
-
 ################################################################
 
 def welcome():
     home_canvas.pack(expand=True, fill=BOTH)
 
-
-################################################################
+###############################################################
 
 def sign_in_validation():
     global image
@@ -692,9 +714,7 @@ def log_in_validation():
                 user_index = i
                 home()
 
-
 ################################################################
-
 def show_log_in_frame():
     sign_in_canvas.pack_forget()
 
@@ -709,9 +729,8 @@ def show_sign_in_frame():
     log_in_canvas.pack_forget()
     sign_in_canvas.pack(expand=True, fill=BOTH)
 
+
 ################################################################
-
-
 ############ center the window
 center_window(window, tk_width, tk_height)
 ########################## BSU LOGO
@@ -1346,4 +1365,5 @@ home_con_button.place(x=220, y=515)
 
 if __name__ == '__main__':
     welcome()
+
 window.mainloop()
