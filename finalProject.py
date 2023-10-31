@@ -102,15 +102,6 @@ class Accounts():
         user_DATE = Label(user_frame, text=f"School : {self.date}")
         user_DATE.pack()
 
-        # display items of user
-        # for i in range(len(products)):
-        # for key in products[i].keys():
-        # profile = Label(inven_frame, image=products[i].get(key).get_image())
-        # profile.pack()
-        # display = Label(inven_frame,
-        # text=f"Type: {products[i].get(key).get_name()}\n Price: {products[i].get(key).get_price()}\n Stock: {products[i].get(key).get_quan()}\n Address: {products[i].get(key).get_address()}\n Contact: {products[i].get(key).get_contact()}")
-        # display.pack()
-
     def get_img(self):
         return self.img
 
@@ -215,7 +206,6 @@ class Products(Accounts):
         self.product_name_f = Label(self.product_container, text=self.product_name)
         self.product_dt_f = Label(self.product_container,
                                   text=f"DATE POSTED: {self.date_posted}\nTIME: {self.time_posted}")
-
         self.product_container.bind('<Enter>', self.wide_view)
         self.product_container.bind('<Leave>', self.small_view)
         self.view_profile = Button(self.product_container, text='view', command=self.profile_view)
@@ -534,7 +524,8 @@ def home():
     log_in_canvas.pack_forget()
     user_frame.pack(fill=BOTH, expand=True)
     for items in range(len(list_a)):
-        list_a[items].show_products()
+        for x in list_a[items].prodcut_list:
+            x.product_container.pack()
 
     # display user data such as cart,products and transaction hirtory
     for items in range(len(list_a)):
@@ -558,7 +549,8 @@ def show_products(event):
     user_products_frame.pack_forget()
     user_transaction_frame.pack_forget()
 
-    list_a[user_index].show_products()
+    for x in list_a[user_index].prodcut_list:
+        x.product_container.pack()
 
     product_frame.pack(expand=True, fill=BOTH)
 
@@ -572,7 +564,12 @@ def myproducts(event):
     user_transaction_frame.pack_forget()
     sell_frame.pack_forget()
 
-    list_a[user_index].show_user_products()
+    for items in range(len(list_a)):
+        if items == user_index:
+            list_a[items].show_user_products()
+        else:
+            list_a[items].unshow_my_products()
+
     user_products_frame.pack(expand=True, fill=BOTH)
 
 
