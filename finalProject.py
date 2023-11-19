@@ -46,8 +46,11 @@ prd_key = 0
 product_list = []
 transaction_list = []
 
+#Starting Position of uploaded products 
+position_of_prdcts = 100
 
-position = 100
+#Starting position of carts
+position_of_cart = 100
 ################################################################
 def open_id_image():
     global id_picture
@@ -60,10 +63,12 @@ def upload_image_function():
     except Exception as e:
         messagebox.showerror("Sign in error","May kulang !\n Ayusin mo")
 
-
-def on_mouse_wheel(event):
+def on_mouse_wheel_prdcts_F(event):
     product_frame.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
+def on_mouse_wheel_cart_F(event):
+    cart_frame.yview_scroll(int(-1 * (event.delta / 120)), "units")
+    
 ############ ACCOUNTS
 class Accounts():
     def __init__(self, id_pic, name, age, address, username, password):
@@ -151,13 +156,6 @@ class Accounts():
         print("prd after adding ", prd_key)
         window.update()
         self.product_indx += 1
-
-    def show_products(self):
-        for items in self.user_product_list:
-            if items == None:
-                pass
-            else:
-                items.show()
 
     def unshow_my_products(self):
         for items in self.user_product_list:
@@ -248,7 +246,7 @@ class Products(Accounts):
         self.view_profile = Button(self.product_container, text='view', command=self.profile_view)
         # buy button
         self.buy_button = Button(self.product_container, text='add to cart')
-        self.insert_to()
+        self.insert_to_prdtcs_F()
 
         # cart frame
         self.cart_f = LabelFrame(cart_frame)
@@ -328,8 +326,8 @@ class Products(Accounts):
         self.product_container.place(x=200, y=self.product_container.winfo_y() + 10)
 
         window.update()
-    def insert_to(self):
-        global position
+    def insert_to_prdtcs_F(self):
+        global position_of_prdcts
         self.product_image_f.pack()
         self.product_name_f.pack()
         self.product_price_f.pack()
@@ -337,13 +335,24 @@ class Products(Accounts):
         self.product_contact_f.pack()
         self.product_dt_f.pack()
         self.buy_button.config(command=lambda: self._add_tocart())
-        product_frame.create_window((0, position), window=self.product_container,width=window_width)
+        product_frame.create_window((0, position_of_prdcts), window=self.product_container,width=window_width)
 
         self.product_container.bind("<Configure>", lambda e: product_frame.configure(scrollregion=product_frame.bbox("all")))
-        self.product_container.bind("<MouseWheel>", on_mousewheel)
+        self.product_container.bind("<MouseWheel>", on_mousewheel_prdcts_F)
+        
+        #increase and create new position of uploaded products by 150
+        position_of_prdcts += 150
+        
+    def insert_to_cart_F(self):
+        global position_of_each_cart
+        cart_frame.create_window((0, position_of_each_cart), window=self.cart_f,width=window_width)
 
-        position += 150
+        self.cart_f.bind("<Configure>", lambda e: cart_frame.configure(scrollregion=cart_frame.bbox("all")))
+        self.cart_f.bind("<MouseWheel>", on_mousewheel_cart_F)
+
+        
         #self.product_container.config(width=window_width)
+    
     def unshow(self):
         self.product_dt_f.pack_forget()
         self.myproduct_image_f.pack_forget()
