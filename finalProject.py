@@ -1,4 +1,7 @@
-# IMPORTS
+# IMPORTSs
+
+from tkinter.ttk import *
+import io
 from tkinter import messagebox
 from tkinter import *
 from tkinter import ttk
@@ -17,74 +20,72 @@ import sqlite3
 ################################################################
 
 window = Tk()
-window.maxsize(500, 600)
-window.minsize(500, 600)
+window_width = 450
+window_heigth = 600
+#window.maxsize(window_width, window_heigth)
+#window.minsize(window_width, window_heigth)
 window.title('SPARduct')
 
+accounts_list = []
 ################################################################
 
-tk_font = 'Segoe UI Black'
-tk_width = 500
-tk_height = 600
-bgcolor = "white"
-lbcolor = "red"
+tk_font = "Calibre"
+
+bgcolor = "#eeeeee"
+text_color = "red"
 user_index = 0
 
 ######################### LISTS
-transaction_list = []
-accounts = []
-users_LIST = []
-products = []
-user_info = []
-product_list = []
-info = []
-product_index = 0
-products_user_list = {}
-ind = 0
-
+user_product_listsaction_list = []
 cart_list = {}
-list_p = []
-list_a = []
 trans_code = "qwertyuiopasdfghjklzxcvbnm1234567890"
-
-#
+num = 0
 date = datetime.now().date()
 _time = time.localtime(time.time())
+prd_key = 0
+product_list = []
+transaction_list = []
 
 
-########################## BSU LOGO
+position = 100
 ################################################################
-def open_image():
-    global image
-    image = Image.open(filedialog.askopenfilename())
-    image = image.resize((100, 100))
-    image = ImageTk.PhotoImage(image)
+def open_id_image():
+    global id_picture
+    id_picture = filedialog.askopenfilename()
 
+def upload_image_function():
+    try:
+        global product_img
+        product_img = filedialog.askopenfilename()
+    except Exception as e:
+        messagebox.showerror("Sign in error","May kulang !\n Ayusin mo")
+
+
+def on_mouse_wheel(event):
+    product_frame.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
 ############ ACCOUNTS
 class Accounts():
-    def __init__(self, img, name, age, address, school, username, password):
+    def __init__(self, id_pic, name, age, address, username, password):
         self.username = username
         self.password = password
-        self.img = img
         self.name = name
         self.address = address
-        self.school = school
+        self.id_pic = id_pic
         self.age = age
-        self.prodcut_list = []
-        self.product_img = None
-        self.product_name = None
-        self.product_price = None
-        self.product_quan = None
-        self.seller_address = None
-        self.seller_contact = None
+        self.user_product_list = []
+        self.product_indx = 0
+        self.transaction_list = []
+
+        self.my_container_of_product =[]
+
         self.date = datetime.now().date()
 
     def show_info(self):
         user_frame = LabelFrame(users_frame)
         user_frame.pack(side='left')
 
-        user_image = Label(user_frame, image=self.img)
+        user_image = Label(user_frame, image=self.id_pic)
         user_image.pack()
 
         user_name = Label(user_frame, text=f"Name : {self.name}")
@@ -96,14 +97,11 @@ class Accounts():
         user_address = Label(user_frame, text=f"Address : {self.address}")
         user_address.pack()
 
-        user_school = Label(user_frame, text=f"School : {self.school}")
-        user_school.pack()
-
         user_DATE = Label(user_frame, text=f"School : {self.date}")
         user_DATE.pack()
 
     def get_img(self):
-        return self.img
+        return self.id_pic
 
     def get_date(self):
         return self.date
@@ -123,22 +121,56 @@ class Accounts():
     def get_password(self):
         return self.password
 
-    def get_school(self):
-        return self.school
+    def get_id(self):
+        return self.id_pic
 
-    def add_product(self, product_img, product_name, product_price, product_quan, seller_address, seller_contact):
-        global product_index
-        product = Products(product_img, product_name, product_price, product_quan, seller_address, seller_contact)
-        self.prodcut_list.append(product)
-        product_index += 1
+    def add_product(self, product_img, product_name, product_price, product_stock, seller_contact):
+        global prd_key
+        global user_index
+        conn = sqlite3.connect("Products.db")
+        c = conn.cursor()
+        c.execute("SELECT * FROM products")
+        key = 0
+        for x in c.fetchall():
+            key = x[0]
+        print("key = ", key)
+        if key < prd_key:
+            prd_key = key + 1
+            print("prd key  change", prd_key)
+        conn.commit()
+        conn.close()
+        print("prd before adding", prd_key)
+        with open(product_img,'rb') as image_file:
+            product_img = image_file.read()
+        product = Products(sqlite3.Binary(product_img), product_name, product_price, product_stock, seller_contact, user_index, prd_key,
+                           self.product_indx)
+        product.save()
+
+        accounts_list[user_index].user_product_list.append(product)
+        prd_key += 1
+        print("prd after adding ", prd_key)
+        window.update()
+        self.product_indx += 1
 
     def show_products(self):
-        for items in self.prodcut_list:
-            items.show()
+        for items in self.user_product_list:
+            if items == None:
+                pass
+            else:
+                items.show()
 
     def unshow_my_products(self):
-        for items in self.prodcut_list:
+        for items in self.user_product_list:
             items.unshow()
+
+    def show_user_products(self):
+        global user_index
+        for items in self.user_product_list:
+            if items == None:
+                pass
+            else:
+                items.show_my_product()
+                window.update()
 
     def show_cart(self):
         for key in cart_list.keys():
@@ -151,59 +183,64 @@ class Accounts():
         for key in cart_list.keys():
             cart_list.get(key).pack_forget()
 
-    def show_user_products(self):
-        for i in range(len(self.prodcut_list)):
-            print(i)
-            if date == self.prodcut_list[i].time_of_deliver:
-                self.prodcut_list.remove(self.prodcut_list[i])
-            else:
-                self.prodcut_list[i].show_my_product()
 
-    def show_my_transaction(self, name):
-        if name == self.name:
-            for items in self.prodcut_list:
-                for carts in items.transaction_list:
+
+    def show_my_transaction(self, username,password):
+        if username == self.username and password == self.password:
+            for carts in accounts_list[user_index].transaction_list:
                     carts.pack()
         else:
             pass
 
     def unshow_my_transaction(self):
-        for items in self.prodcut_list:
+        for items in accounts_list:
             for carts in items.transaction_list:
                 carts.pack_forget()
 
 
 class Products(Accounts):
-    def __init__(self, product_img, product_name, product_price, product_quan, seller_address, seller_contact):
+    def __init__(self, image_of_product, product_type, product_price, product_stock, seller_contact, product_index, id_num,
+                 prd_indx):
+        global user_index
+        global position_y
         global date
-        super().__init__(list_a[user_index].get_img(),
-                         list_a[user_index].get_user_name(),
-                         list_a[user_index].get_age(),
-                         list_a[user_index].get_user_address(),
-                         list_a[user_index].get_school(),
-                         list_a[user_index].get_username(),
-                         list_a[user_index].get_password())
+        global product_img
+        super().__init__(accounts_list[user_index].get_id(),
+                         accounts_list[user_index].get_user_name(),
+                         accounts_list[user_index].get_age(),
+                         accounts_list[user_index].get_user_address(),
+                         accounts_list[user_index].get_username(),
+                         accounts_list[user_index].get_password())
         # products components
-
-        self.product_image = product_img
-        self.product_name = product_name
-        self.product_price = product_price
-        self.product_quan = int(product_quan)
-        self.seller_address = seller_address
+        self.prd_indx = prd_indx
+        convert_to_img = Image.open(io.BytesIO(image_of_product))
+        covert_to_img = convert_to_img.resize((40,40))
+        convert_to_img = ImageTk.PhotoImage(covert_to_img)
+        self.product_image = convert_to_img
+        self.image_of_product = image_of_product
+        self.id_num = id_num
+        self.product_type = product_type
+        self.product_price = int(product_price)
+        self.product_stock = int(product_stock)
         self.seller_contact = seller_contact
+        self.product_index = product_index
+
         # time
         self.local_t = time.localtime()
         self.date_posted = datetime.now().date()
         self.time_posted = time.strftime("%H:%M:%S", self.local_t)
 
         # products frame, labels and buttons
-        self.product_container = LabelFrame(product_frame)
-        self.product_address_f = Label(self.product_container, text=self.seller_address)
+        self.product_container = LabelFrame(product_frame,width=600,height=300,bg='red')
         self.product_contact_f = Label(self.product_container, text=self.seller_contact)
-        self.product_quan_f = Label(self.product_container, text=str(self.product_quan))
+        self.product_contact_f.text = self.seller_contact
+        self.product_quan_f = Label(self.product_container, text=str(self.product_stock))
+        self.product_quan_f.text = str(self.product_stock)
         self.product_price_f = Label(self.product_container, text=self.product_price)
+        self.product_price_f.text = self.product_price
         self.product_image_f = Label(self.product_container, image=self.product_image)
-        self.product_name_f = Label(self.product_container, text=self.product_name)
+        self.product_image_f.text = self.product_image
+        self.product_name_f = Label(self.product_container, text=self.product_type)
         self.product_dt_f = Label(self.product_container,
                                   text=f"DATE POSTED: {self.date_posted}\nTIME: {self.time_posted}")
         self.product_container.bind('<Enter>', self.wide_view)
@@ -211,6 +248,7 @@ class Products(Accounts):
         self.view_profile = Button(self.product_container, text='view', command=self.profile_view)
         # buy button
         self.buy_button = Button(self.product_container, text='add to cart')
+        self.insert_to()
 
         # cart frame
         self.cart_f = LabelFrame(cart_frame)
@@ -218,63 +256,98 @@ class Products(Accounts):
         # transaction frame
         self.transaction_f = Label(user_transaction_frame)
         # trasaction history list
-        self.transaction_list = []
+
 
         self.frame = Frame(user_frame)
-        self.label = Label(self.frame, image=self.img)
+        self.label = Label(self.frame, image=self.id_pic)
 
         self.button_exit_prof = Button(self.frame, command=self.profile_unview, text="X")
 
         self.info_label = Label(self.frame,
-                                text=f"Name:{self.get_user_name()}\nAge:{self.get_age()}\nAddress:{self.get_user_address()}\nSchool:{self.get_school()}")
+                                text=f"Name:{self.get_user_name()}\nAge:{self.get_age()}\nAddress:{self.get_user_address()}")
         self.label.pack()
         self.info_label.pack()
         self.button_exit_prof.pack()
 
         # myproducts frame
         self.myproduct_container = LabelFrame(user_products_frame)
-        self.myproduct_address_f = Label(self.myproduct_container, text=self.seller_address)
-        self.myproduct_contact_f = Label(self.myproduct_container, text=self.seller_contact)
-        self.myproduct_quan_f = Label(self.myproduct_container, text=str(self.product_quan))
-        self.myproduct_price_f = Label(self.myproduct_container, text=self.product_price)
         self.myproduct_image_f = Label(self.myproduct_container, image=self.product_image)
-        self.myproduct_name_f = Label(self.myproduct_container, text=self.product_name)
+        self.my_Pinfo = Label(self.myproduct_container,
+                              text=f"Type: {self.product_type} Price: {self.product_price} Stock: {self.product_stock}")
         self.selfindex = product_index
-        self.remove_button = Button(self.myproduct_container, text='remove')
+        self.remove_button = Button(self.myproduct_container, text='remove',
+                                    command=lambda: self.remove_product())
+        self.my_Pinfo.pack()
+        self.myproduct_image_f.pack()
+        self.remove_button.pack()
 
         # date delivever
-        self.time_of_deliver = datetime.now().date().today() + timedelta(days=(int(_time.tm_wday) + 5))
+        self.time_of_deliver = datetime.now().date().today() + timedelta(days=(int(_time.tm_wday) + 7))
+
+    def save(self):
+        global user_index
+        global product_img
+        conn = sqlite3.connect("Products.db")
+        c = conn.cursor()
+
+        product = [self.image_of_product, self.product_type, self.product_price, self.product_stock,
+                   self.seller_contact, self.product_index]
+        c.executemany(
+            "INSERT INTO  products (product_img,product_type,product_price,product_stock,seller_contact,product_index) VALUES (?,?,?,?,?,?)",
+            (product,))
+
+        conn.commit()
+        conn.close()
 
     def get_index(self):
-        return self.selfindex
+        return self.product_index
 
     def show(self):
         global product_frame
         product_frame.bind("<Key>", self.move)
         index = user_index
+        conn = sqlite3.connect("Products.db")
+        c = conn.cursor()
+        if self.product_stock <= 0:
+            delete = f"DElETE FROM products WHERE id={self.id_num}"
+            c.execute(delete)
+            conn.commit()
+            conn.close()
+            self.product_quan_f.config(text='sold out')
+            self.my_Pinfo.config(text=f"SOLD OUT")
+            self.buy_button.config(state=DISABLED)
+            self.product_container.pack_forget()
+            self.myproduct_container.pack_forget()
 
+        else:
+            pass
+        conn.commit()
+        conn.close()
+
+    def move(self, event):
+        self.product_container.place(x=200, y=self.product_container.winfo_y() + 10)
+
+        window.update()
+    def insert_to(self):
+        global position
         self.product_image_f.pack()
         self.product_name_f.pack()
         self.product_price_f.pack()
         self.product_quan_f.pack()
-        self.product_address_f.pack()
         self.product_contact_f.pack()
         self.product_dt_f.pack()
         self.buy_button.config(command=lambda: self._add_tocart())
-        self.product_container.pack()
+        product_frame.create_window((0, position), window=self.product_container,width=window_width)
 
-    def move(self, event):
-        self.product_container.place(x=200, y=self.product_container.winfo_y() + 10)
-        window.update()
+        self.product_container.bind("<Configure>", lambda e: product_frame.configure(scrollregion=product_frame.bbox("all")))
+        self.product_container.bind("<MouseWheel>", on_mousewheel)
 
+        position += 150
+        #self.product_container.config(width=window_width)
     def unshow(self):
         self.product_dt_f.pack_forget()
         self.myproduct_image_f.pack_forget()
-        self.myproduct_name_f.pack_forget()
-        self.myproduct_price_f.pack_forget()
-        self.myproduct_quan_f.pack_forget()
-        self.myproduct_address_f.pack_forget()
-        self.myproduct_contact_f.pack_forget()
+        self.my_Pinfo.pack_forget()
         self.myproduct_container.pack_forget()
         self.remove_button.pack_forget()
 
@@ -283,15 +356,24 @@ class Products(Accounts):
         self.myproduct_container.pack_forget()
 
     def show_my_product(self):
-        self.myproduct_image_f.pack()
-        self.myproduct_name_f.pack()
-        self.myproduct_price_f.pack()
-        self.myproduct_quan_f.pack()
-        self.myproduct_address_f.pack()
-        self.myproduct_contact_f.pack()
-        self.myproduct_container.pack()
-        self.remove_button.pack()
 
+        if self.product_stock <= 0:
+            conn = sqlite3.connect("Products.db")
+            c = conn.cursor()
+            delete = f"DElETE FROM products WHERE id={self.id_num}"
+            c.execute(delete)
+            conn.commit()
+            conn.close()
+            self.product_quan_f.config(text='sold out')
+            self.my_Pinfo.config(text=f"SOLD OUT")
+            self.buy_button.config(state=DISABLED)
+            conn.commit()
+            conn.close()
+        else:
+            self.myproduct_image_f.pack()
+            self.my_Pinfo.pack()
+            self.myproduct_container.pack()
+            self.remove_button.pack()
     def wide_view(self, event):
 
         self.buy_button.pack()
@@ -317,27 +399,42 @@ class Products(Accounts):
         amount.config(text=str('PHP' + str(self.product_price)))
 
         new_quan = StringVar()
-        quan_menu.config(textvariable=new_quan, from_=0, to=self.product_quan)
+        quan_menu.config(textvariable=new_quan, from_=0, to=self.product_stock)
 
-        buy_button.config(command=lambda: self.tran(new_quan.get()), text="BUY")
+        buy_button.config(command=lambda: self.transaction_method(new_quan.get()), text="BUY")
 
-    def tran(self, new_quan):
+    def transaction_method(self, new_quan):
+        global trans_code
+        conn = sqlite3.connect("Products.db")
+        conn2 = sqlite3.connect("Transaction.db")
+        tran = conn2.cursor()
+        c = conn.cursor()
         ask = messagebox.askyesno("info", "are you sure to buy this product?")
         if ask:
-            global trans_code
+
             code = ''
-            quan = self.product_quan
+            quan = self.product_stock
 
             for i in range(5):
                 code += str(trans_code[random.randint(0, 35)])
-            self.product_quan -= int(new_quan)
-            self.product_quan_f.config(text=str(self.product_quan))
-            self.myproduct_quan_f.config(text=(str(self.product_quan)))
+            self.product_stock -= int(new_quan)
+            change = f"UPDATE products SET product_stock={self.product_stock} WHERE id={self.id_num}"
+            c.execute(change)
+            conn.commit()
+            self.product_quan_f.config(text=str(self.product_stock))
+            self.my_Pinfo.config(
+                text=f"Type: {self.product_type} Price: {self.product_price} Stock: {self.product_stock}")
 
-            print(self.product_quan)
+            print(self.product_stock)
             window.update()
-            if self.product_quan <= 0:
+            if self.product_stock <= 0:
+                delete = f"DElETE FROM products WHERE id={self.id_num}"
+                c.execute(delete)
+
+                conn.commit()
+
                 self.product_quan_f.config(text='sold out')
+                self.my_Pinfo.config(text=f"SOLD OUT")
                 self.buy_button.config(state=DISABLED)
 
             # save to the cart
@@ -345,25 +442,34 @@ class Products(Accounts):
             payment = str(int(new_quan) * price)
             product_p_c = Label(self.cart_f, image=self.product_image)
             product_info_c = Label(self.cart_f,
-                                   text=f"Seller: {self.get_user_name()}\nProduct: {self.product_name}\nAmount: {self.product_price}\nQuantity: {quan}\nTransaction Code: {str(code)}\nPayment: {payment}\nDATE: {date}\nDATE OF DELIVER:{self.time_of_deliver}")
+                                   text=f"Seller: {self.get_user_name()}\nProduct: {self.product_type}\nAmount: {self.product_price}\nQuantity: {quan}\nTransaction Code: {str(code)}\nPayment: {payment}\nDATE: {date}\nDATE OF DELIVER:{self.time_of_deliver}")
 
             product_p_c.pack()
             product_info_c.pack()
-            cart_list.update({user_index: self.cart_f})
+            cart_list.get(user_index).append(self.cart_f)
 
             # save the transaction
             product_p_t = Label(self.transaction_f, image=self.product_image)
             product_info_t = Label(self.transaction_f,
-                                   text=f"Buyer: {list_a[user_index].get_user_name()}\nBuyer address:{list_a[user_index].get_user_address()}Product: {self.product_name}\nAmount: {self.product_price}\nQuantity: {quan}\nTransaction Code: {str(code)}\nPayment: {payment}\nDATE OF DELIVER:{self.time_of_deliver}")
+                                   text=f"Buyer: {accounts_list[user_index].get_user_name()}\nProduct: {self.product_type}\nTransaction Code: {str(code)}\nPayment: {payment}\nDATE OF DELIVER:{self.time_of_deliver}")
+            button_paid = Button(self.transaction_f,text="paid",command=lambda : (product_info_t.config(text="paid")))
+            button_paid.pack()
             product_p_t.pack()
             product_info_t.pack()
-            self.transaction_list.append(self.transaction_f)
+            accounts_list[self.product_index].transaction_list.append(self.transaction_f)
 
             # send transaction to the admin
+            insert_transaction_to_tb = [self.image_of_product,self.get_user_name(),accounts_list[user_index].get_user_name(),self.product_type,int(payment),self.time_of_deliver,code,int(self.product_index),int(user_index)]
+            tran.executemany("INSERT INTO transactions (product_img,seller_name,buyer_name,product_type,payment_amount,day_of_deliver,transaction_code,config_user_id,buyer_index) VALUES (?,?,?,?,?,?,?,?,?)",(insert_transaction_to_tb,))
+            conn2.commit()
             transaction_list.append(
-                str(f"Product:{self.product_name} | Seller:{self.get_user_name()} | Price:{self.product_price} >> Buyer:{list_a[user_index].get_user_name()} | Payment:{payment} | TRANSACTION CODE:{code}"))
+                str(f"Product:{self.product_type} | Seller:{self.get_user_name()} | Price:{self.product_price} >> Buyer:{accounts_list[user_index].get_user_name()} | Payment:{payment} | TRANSACTION CODE:{code}"))
         else:
             pass
+        conn.commit()
+        conn.close()
+        conn2.commit()
+        conn2.close()
 
     def profile_view(self):
         product_frame.pack_forget()
@@ -382,7 +488,7 @@ class Products(Accounts):
         pass
 
     def get_name(self):
-        return self.product_name
+        return self.product_type
 
     def get_pro_date(self):
         return f"{self.date_posted}| {self.time_posted}"
@@ -394,7 +500,17 @@ class Products(Accounts):
         return self.product_price
 
     def remove_product(self):
-        self.product_container.destroy()
+        print("prd remove", self.id_num)
+        self.myproduct_container.pack_forget()
+        conn = sqlite3.connect("Products.db")
+        c = conn.cursor()
+        delete = f"DElETE FROM products WHERE id={self.id_num}"
+        c.execute(delete)
+        remove_in_user_product_list(self.product_indx)
+
+        conn.commit()
+        conn.close()
+        window.update()
 
     def get_address(self):
         return self.seller_address
@@ -403,78 +519,136 @@ class Products(Accounts):
         return self.seller_contact
 
     def get_quan(self):
-        return self.product_quan
-
+        return self.product_stock
 
 ################################################################
-
-def save_product(product_image, product_name, product_price, product_quan, seller_address, seller_contact):
-    global product_index
+def save_product(product_imagee, product_name, product_price, product_quan, seller_contact):
     global product_frame
+    global num
+    global product_img
+    global product_list
+    if (
+            product_validation(product_imagee, product_name, product_price, product_quan, seller_contact)):
+        img = Image.open(product_img)
+        img = img.resize((40, 40))
+        img = ImageTk.PhotoImage(img)
+        accounts_list[user_index].add_product(product_imagee,
+                                              product_name,
+                                              product_price,
+                                              product_quan,
+                                              seller_contact,
+                                              )
 
-    x = log_in_username.get() + ' ' + log_in_password.get()
-    if not (
-            product_image == None and product_name == "" and product_price == '' and product_quan == '' and seller_address == '' and seller_contact == ''):
-
-        product = Products(product_image, product_name, product_price, product_quan, seller_address, seller_contact)
-        list_a[user_index].add_product(product_image,
-                                       product_name,
-                                       product_price,
-                                       product_quan,
-                                       seller_address,
-                                       seller_contact)
-        list_p.append(product)
-
-        info_save = {x: product}
-        products.append(info_save)
-
-        product.show()
+        prd = Label(inven_frame, image=img,
+                    text=f"Seller:{accounts_list[user_index].get_user_name()} Type:{product_name} Price:{product_price} Stock:{product_quan}",
+                    compound="left")
+        prd.image = img
+        product_list.append(prd)
+        num += 1
+        upload_name_of_product.delete(0, END)
+        upload_price.delete(0, END)
+        upload_stock.delete(0, END)
+        upload_contact.delete(0, END)
 
     else:
         return messagebox.showerror('error', 'error')
 
 
-def product_validation():
-    save_product(product_image, upload_name_of_product.get(),
-                 upload_price.get(),
-                 upload_stock.get(),
-                 upload_address.get(),
-                 upload_contact.get())
+def product_validation(product_img, product_type, product_price, product_stock, seller_con):
+    if product_img == None and product_type == "" and product_price == '' and product_stock == '' and seller_con == '':
+        return False
+    else:
+        return True
 
 
-def upload_image_function():
-    global product_image
-    product_image = Image.open(filedialog.askopenfilename())
-    product_image = product_image.resize((50, 50))
-    product_image = ImageTk.PhotoImage(product_image)
+def remove_in_user_product_list(indexx):
+    print("remove index", indexx)
+
+    accounts_list[user_index].user_product_list.remove(accounts_list[user_index].user_product_list[indexx])
+    for item in accounts_list[user_index].user_product_list:
+        if len(accounts_list[user_index].user_product_list) == 0:
+            pass
+        else:
+            item.product_indx -= 1
+    print("new len of list", len(accounts_list[user_index].user_product_list))
+    window.update()
 
 
 #######################  SAVE ACCOUNT
 
-def save_account(image, name, age, address, school, username, password):
-    account = Accounts(image, name, age, address, school, username, password)
-    list_a.append(account)
+def save_account(id_pic, name,address, username, password):
+    global sign_in_username
+    global accounts_list
+    global age
+    try:
+        if sign_in_validation(id_pic, name,address, username, password):
+            conn = sqlite3.connect('Accounts.db')
+            c = conn.cursor()
+
+            img = Image.open(id_pic)
+            img = img.resize((60, 60))
+            img = ImageTk.PhotoImage(img)
+            account = Accounts(id_pic, name, address, username, password)
+            accounts_list.append(account)
+            with open(id_pic, 'rb') as image_file:
+                id_picture = image_file.read()
+                c.execute("INSERT INTO accounts (id_pic,name,age,address,username,password) VALUES (?,?,?,?,?,?)",
+                          (sqlite3.Binary(id_picture), name,  address, username, password))
+            conn.commit()
+            conn.close()
+            sign_in_username.delete(0, END)
+            age.delete(0, END)
+            sign_user_address.delete(0, END)
+            sign_in_password.delete(0, END)
+            confirm_pass.delete(0, END)
+            show_log_in_frame()
+        else:
+            show_sign_in_frame()
+    except Exception as e:
+        messagebox.showerror("Sign in error","May kulang !\n Ayusin mo")
+
+def sign_in_validation(id_pic, name,address, username, password):
+    if not (
+            id_pic == None or name == ''  or address == '' or username == ''):
+        if password == confirm_pass.get():
+            return True
+    else:
+        return False
 
 
 #######################  ADMIN
 
 def admin():
+    global product_list
+
     log_in_canvas.pack_forget()
     admin_frame.pack(expand=True, fill=BOTH)
 
-    # for display users
-    for acc in list_a:
-        acc.show_info()
+    conn = sqlite3.connect('Accounts.db')
+    c = conn.cursor()
 
-    for items in range(len(transaction_list)):
-        label = Label(admin_tran_frame, text=str(transaction_list[items]))
-        label.pack()
-    for pro in list_p:
-        label2 = Label(inven_frame, image=pro.get_image())
-        label2.pack()
-        info_p = Label(inven_frame,
-                       text=f"product:{pro.get_name()}\nprice:{pro.get_price()}\nStock:{pro.get_quan()}\nAddress:{pro.get_address()}\nContact:{pro.get_contact()}\nDATE POSTED:{pro.get_pro_date()}")
-        info_p.pack()
+    c.execute("SELECT * FROM accounts ")
+    for acc in c.fetchall():
+        imga = Image.open(io.BytesIO(acc[1]))
+        imga = imga.resize((60, 60))
+        imgs = ImageTk.PhotoImage(imga)
+        container = LabelFrame(users_frame)
+        pro_img = Label(container, image=imgs)
+        pro_img.image = imgs
+        infos = Label(container, text=f"NO# {acc[0]} Name: {acc[2]} Age: {acc[3]} Address: {acc[4]}")
+        container.pack()
+        pro_img.pack()
+        infos.pack()
+
+    # user_infos = Label(users_frame,text=f"Name: {ac[1]}\nAge: {ac[2]}\nAddress: {ac[3]}")
+    # user_infos.pack()
+    conn.commit()
+    conn.close()
+    for products in product_list:
+        products.pack()
+    #product_list[0].pack()
+    for items in transaction_list:
+        Label(admin_tran_frame, text=items).pack()
 
 
 def users(event):
@@ -484,7 +658,6 @@ def users(event):
 
     users_frame.pack(expand=True, fill=BOTH)
 
-
 def inventory(event):
     admin_menu_frame.pack_forget()
     users_frame.pack_forget()
@@ -492,10 +665,8 @@ def inventory(event):
 
     inven_frame.pack(expand=True, fill=BOTH)
 
-
 def admin_log_out():
     pass
-
 
 def admin_menu(event):
     users_frame.pack_forget()
@@ -521,22 +692,21 @@ def user():
 
 
 def home():
+    global cart_list
     log_in_canvas.pack_forget()
     user_frame.pack(fill=BOTH, expand=True)
-    for items in range(len(list_a)):
-        for x in list_a[items].prodcut_list:
-            x.product_container.pack()
+    for items in range(len(accounts_list)):
+        accounts_list[items].show_products()
+
 
     # display user data such as cart,products and transaction hirtory
-    for items in range(len(list_a)):
-        if items == user_index:
-            list_a[items].show_cart()
-            list_a[items].show_user_products()
-            list_a[items].show_my_transaction(list_a[user_index].get_user_name())
-        else:
-            list_a[items].unshow_cart()
-            list_a[items].unshow_my_products()
-            list_a[items].unshow_my_transaction()
+    for item in accounts_list[user_index].user_product_list:
+        item.show_my_transaction(item.get_username(),item.get_password())
+
+    for item in accounts_list[user_index].user_product_list:
+        item.show_user_products()
+
+    accounts_list[user_index].show_user_products()
 
 
 def show_products(event):
@@ -549,13 +719,15 @@ def show_products(event):
     user_products_frame.pack_forget()
     user_transaction_frame.pack_forget()
 
-    for x in list_a[user_index].prodcut_list:
-        x.product_container.pack()
+    #for x in accounts_list[user_index].user_product_list:
+     #   x.product_container.pack()
+
 
     product_frame.pack(expand=True, fill=BOTH)
 
 
 def myproducts(event):
+    global cart_list
     cart_frame.pack_forget()
     profile_frame.pack_forget()
     product_frame.pack_forget()
@@ -563,16 +735,16 @@ def myproducts(event):
     buy_frame.pack_forget()
     user_transaction_frame.pack_forget()
     sell_frame.pack_forget()
+    for item in accounts_list[user_index].user_product_list:
+        item.show_user_products()
 
-    for items in range(len(list_a)):
-        if items == user_index:
-            list_a[items].show_user_products()
+    for items in accounts_list:
+        if items == accounts_list[user_index] and len(accounts_list[user_index].user_product_list) != 0:
+            items.show_user_products()
+            window.update()
         else:
-            list_a[items].unshow_my_products()
-
+            items.unshow_my_products()
     user_products_frame.pack(expand=True, fill=BOTH)
-
-
 def mytransaction(event):
     cart_frame.pack_forget()
     profile_frame.pack_forget()
@@ -582,8 +754,15 @@ def mytransaction(event):
     user_products_frame.pack_forget()
     sell_frame.pack_forget()
 
+    for item in accounts_list[user_index].user_product_list:
+        item.show_my_transaction(item.get_username(),item.get_password())
+
+
     user_transaction_frame.pack(expand=True, fill=BOTH)
 
+def back_to_log_com():
+    sign_in_canvas.pack_forget()
+    log_in_canvas.pack(fill=BOTH,expand=True)
 
 def add_product(event):
     cart_frame.pack_forget()
@@ -624,13 +803,17 @@ def cart(event):
 
     for key in cart_list.keys():
         if key == user_index:
-            cart_list.get(key).pack()
+            for cart in cart_list.get(key):
+                cart.pack()
         else:
-            cart_list.get(key).pack_forget()
+            for cart in cart_list.get(key):
+                cart.pack_forget()
     cart_frame.pack(expand=True, fill=BOTH)
 
 
 def profile(event):
+    global user_index
+    global accounts_list
     menu_frame.pack_forget()
     sell_frame.pack_forget()
     cart_frame.pack_forget()
@@ -639,29 +822,38 @@ def profile(event):
     user_products_frame.pack_forget()
     user_transaction_frame.pack_forget()
 
-    global user_index
     profile_frame.pack(expand=True, fill=BOTH)
+    profile_pic.config(image=accounts_list[user_index].get_img())
+    profile_NAME.config(text=accounts_list[user_index].get_user_name())
+    profile_ADDRES.config(text=accounts_list[user_index].get_user_address())
+    profile_AGE.config(text=accounts_list[user_index].get_age())
+#scroll the products
 
-    profile_pic.config(image=list_a[user_index].get_img())
-    profile_NAME.config(text=list_a[user_index].get_user_name())
-    profile_ADDRES.config(text=list_a[user_index].get_user_address())
-    profile_AGE.config(text=list_a[user_index].get_age())
-    profile_SCHOOL.config(text=list_a[user_index].get_school())
-    profile_DATE.config(text=list_a[user_index].get_date())
+def on_mousewheel(event):
+    product_frame.yview_scroll(-1 * (event.delta // 120), "units")
 
+def change_bg_color():
+    log_in_canvas.itemconfig(switch,image=moon_img)
+    log_in_canvas.config(bg='#414a4c')
 
-# x = susername.get() + "=" + s_password.get()
-
-#   print(info[0].get(x)['x'])
+    log_in_canvas.tag_bind(switch,"<Button>",lambda event: change_to_light())
+def change_to_light():
+    log_in_canvas.itemconfig(switch, image=sun_img)
+    log_in_canvas.config(bg=bgcolor)
+    log_in_canvas.tag_bind(switch, "<Button>", lambda event: change_bg_color())
 
 def user_log_out(event):
     cart_frame.pack_forget()
     user_frame.pack_forget()
+    for items in accounts_list:
+        items.unshow_my_products()
+        items.unshow_my_transaction()
     welcome()
 
 
 def about():
     pass
+
 
 ################################################################
 # center the window
@@ -672,45 +864,201 @@ def center_window(window, width, height, ):
     y = (screen_heigth - height) // 2
     window.geometry(f"{width}x{height}+{x}+{y}")
 
+
 ################################################################
+def restore_db_to_list():
+    global accounts_list
+    global num
+    global prd_key
+    global product_list
+    global cart_list
+
+    products_list = []
+
+    conn = sqlite3.connect("Accounts.db")
+    conn2 = sqlite3.connect("Products.db")
+    conn3 = sqlite3.connect("Transaction.db")
+
+    c = conn.cursor()
+    c2 = conn2.cursor()
+    c3 = conn3.cursor()
+    # c2.execute("CREATE TABLE IF NOT EXISTS products (product_img BLOB,product_type text,product_price INTEGER,product_stock INTEGER,product_index INTEGER)")
+    c.execute("SELECT * FROM accounts")
+    c2.execute("SELECT * FROM products")
+
+
+    index = 0
+    #RESTORE ACCOUNTS FROM THE DATABASE ACCOUNTS TO LIST OF ACCOUNTS
+    for acc in c.fetchall():
+        img = Image.open(io.BytesIO(acc[1]))
+        img = img.resize((60, 60))
+        img = ImageTk.PhotoImage(img)
+        account = Accounts(img, acc[2], acc[3], acc[4], acc[5], acc[6])
+        accounts_list.append(account)
+        print("name user:",accounts_list[index].get_user_name())
+        index += 1
+    print("account len is ",len(accounts_list))
+    products_restore = c2.fetchall()
+
+    #RESTORE PRODUCTS FROM DATABASE PRODUCTS TO ITS OWNERS
+    for acc_index in range(len(accounts_list)):
+
+        print("len(",acc_index,")")
+        for prod in products_restore:
+            print("prod[6]",int(prod[6]),"=",acc_index)
+            if prod[6] == acc_index:
+                print("prod[6]", int(prod[6]))
+                img = Image.open(io.BytesIO(prod[1]))
+                img = img.resize((60, 60))
+                img = ImageTk.PhotoImage(img)
+                product = Products(prod[1], prod[2], prod[3], prod[4], prod[5], acc_index, prod[0], accounts_list[acc_index].product_indx)
+                prd = Label(inven_frame, image=img,
+                                          text=f"Seller:{accounts_list[acc_index].get_user_name()} Type:{prod[2]} Price:{prod[3]} Stock:{prod[4]}",
+                                          compound="left")
+                prd.image = img
+
+                product_list.append(prd)
+                print(prod[0])
+                accounts_list[acc_index].user_product_list.append(product)
+
+                accounts_list[acc_index].product_indx += 1
+                print("prd number before", prd_key)
+                if prod[0] > prd_key:
+                    prd_key = prod[0]
+                    print("prd number after", prd_key)
+
+
+            conn.commit()
+    prd_key += 1
+    print("prd last ", prd_key)
+
+    #RESTORE TRANSACTION LIST
+    for user_id in range(len(accounts_list)):
+        c3.execute("SELECT * FROM transactions")
+        for _tran in c3.fetchall():
+            if _tran[8] == user_id:
+                print(_tran[8], 'tran' , user_index)
+                transaction_container = LabelFrame(user_transaction_frame)
+                tran_img = Image.open(io.BytesIO(_tran[1]))
+                tran_img = tran_img.resize((40,40))
+                tran_img = ImageTk.PhotoImage(tran_img)
+                product_p_t = Label(transaction_container, image=tran_img)
+                product_p_t.image = tran_img
+                product_info_t = Label(transaction_container,
+                                       text=f"Buyer: {_tran[3]}\nProduct: {_tran[4]}\nTransaction Code: {_tran[7]}\nPayment: {_tran[5]}\nDATE OF DELIVER:{_tran[6]}")
+                button_paid = Button(transaction_container, text="paid",
+                                     command=lambda: product_info_t.config(text="paid"))
+                button_paid.pack()
+                product_p_t.pack()
+                product_info_t.pack()
+                accounts_list[user_id].transaction_list.append(transaction_container)
+                print('gwrtygwhg')
+
+    #RESTORE USER CART FROM DB
+    for user_id in range(len(accounts_list)):
+        c3.execute("SELECT * FROM transactions")
+        cart_list.update({user_id:[]})
+        for _tran in c3.fetchall():
+            if _tran[9] == user_id:
+                print("9:", _tran[9], "user_id = ", user_id)
+
+                cart_img = Image.open(io.BytesIO(_tran[1]))
+                cart_img = cart_img.resize((40, 40))
+                cart_img = ImageTk.PhotoImage(cart_img)
+                cart_user_frame = LabelFrame(cart_frame)
+
+                product_p_c = Label(cart_user_frame, image=cart_img)
+                product_p_c.image = cart_img
+                product_info_c = Label(cart_user_frame,
+                                       text=f"Seller: {_tran[2]}\nProduct: {_tran[4]}\nTransaction Code: {_tran[7]}\nPayment: {_tran[5]}\nDATE OF DELIVER:{_tran[6]}")
+
+                product_p_c.pack()
+                product_info_c.pack()
+                cart_list.get(user_id).append(cart_user_frame)
+                print("name",_tran[9])
+
+
+    conn2.close()
+    conn3.close()
+    conn.close()
+
 
 def welcome():
     home_canvas.pack(expand=True, fill=BOTH)
 
-###############################################################
 
-def sign_in_validation():
-    global image
-    if not (
-            image == None or sign_user_name.get() == '' or age.get() == sign_user_address.get() == '' or sign_user_school.get() == ''):
-        ##### SAVE ACCOUNT
-        if s_password.get() == confirm_pass.get():
-            save_account(image,
-                         sign_user_name.get(),
-                         age.get(),
-                         sign_user_address.get(),
-                         sign_user_school.get(),
-                         susername.get(),
-                         s_password.get())
-            show_log_in_frame()
-    else:
-        show_sign_in_frame()
+###############################################################
 
 
 ################################################################
 
 def log_in_validation():
     global user_index
+    conn = sqlite3.connect('Accounts.db')
+    c = conn.cursor()
+    c.execute("SELECT * FROM accounts")
     if log_in_username.get() == "admin" and log_in_password.get() == 'admin':
+        log_in_password.delete(0, END)
+        log_in_username.delete(0, END)
         admin()
     else:
-        x = log_in_username.get() + "=" + log_in_password.get()
-
-        for i in range(len(list_a)):
-            if log_in_username.get() == list_a[i].get_username() and log_in_password.get() == list_a[i].get_password():
-                user_index = i
+        for acc in c.fetchall():
+            if log_in_username.get() == acc[5] and log_in_password.get() == acc[6]:
+                user_index = acc[0] - 1
+                log_in_password.delete(0, END)
+                log_in_username.delete(0, END)
                 home()
+                break
 
+    conn.commit()
+    conn.close()
+
+###############################################################
+def write_text(index):
+    if index <= len(tagline):
+        partial_text = tagline[:index]
+        home_canvas.itemconfig(bsu_tagline,text=partial_text)
+
+        home_canvas.after(40,write_text,index+1)
+
+
+def enter_txt_U():
+    log_in_canvas.itemconfig(usr_name_line, fill="black",width=1)
+    window.update()
+
+    log_in_canvas.itemconfig(usr_p_line, fill="#F3F2ED", width=1)
+    window.update()
+
+    print('wrht')
+def leave_txt_U():
+    pass
+
+def enter_txt_P():
+    log_in_canvas.itemconfig(usr_name_line, fill="#F3F2ED", width=1)
+    window.update()
+
+    log_in_canvas.itemconfig(usr_p_line, fill="black", width=1)
+    window.update()
+################################################################
+
+def show_password():
+    print("aeg")
+    log_in_password.config(show='')
+    log_in_password.show = ""
+    log_in_canvas.itemconfig(pass_btn_config,image=hide_pass_img)
+    log_in_canvas.tag_unbind(pass_btn_config, "<Button>")
+    log_in_canvas.tag_bind(pass_btn_config, "<Button>", lambda event: hide_password())
+    window.update()
+
+################################################################
+
+def hide_password():
+    log_in_password.config(show='*')
+    log_in_password.show = "*"
+    log_in_canvas.itemconfig(pass_btn_config,image=show_pass_img)
+    log_in_canvas.tag_unbind(pass_btn_config, "<Button>")
+    log_in_canvas.tag_bind(pass_btn_config, "<Button>",lambda event: show_password())
+    window.update()
 ################################################################
 def show_log_in_frame():
     sign_in_canvas.pack_forget()
@@ -728,8 +1076,25 @@ def show_sign_in_frame():
 
 
 ################################################################
+
+def line_move_to_home(event):
+    line.place(x=window_width-428,y=27)
+
+
+
+def line_move_to_menu(event):
+    line.place(x=window_width - 49, y=27)
+
+def line_move_to_prof(event):
+    line.place(x=window_width - 138, y=27)
+
+def line_move_to_search(event):
+    line.place(x=window_width - 338, y=27)
+
+def line_move_to_cart(event):
+    line.place(x=window_width - 238, y=27)
 ############ center the window
-center_window(window, tk_width, tk_height)
+center_window(window, window_width, window_heigth)
 ########################## BSU LOGO
 
 logo_big = Image.open('images/logo.png')
@@ -745,11 +1110,11 @@ logo_small = logo_small.resize((50, 50))
 logo_small = ImageTk.PhotoImage(logo_small)
 
 user_logo = Image.open('images/user.png')
-user_logo = user_logo.resize((20, 20))
+user_logo = user_logo.resize((25, 20))
 user_logo = ImageTk.PhotoImage(user_logo)
 
 search_logo = Image.open('images/search logo.png')
-search_logo = search_logo.resize((20, 20))
+search_logo = search_logo.resize((25, 20))
 search_logo = ImageTk.PhotoImage(search_logo)
 
 menu_logo = Image.open('images/menu-burger.png')
@@ -757,20 +1122,36 @@ menu_logo = menu_logo.resize((25, 20))
 menu_logo = ImageTk.PhotoImage(menu_logo)
 
 product_logo = Image.open('images/shopping-cart (1).png')
-product_logo = product_logo.resize((20, 20))
+product_logo = product_logo.resize((25, 20))
 product_logo = ImageTk.PhotoImage(product_logo)
 
+
+home_logo = Image.open('images/home.png')
+home_logo = home_logo.resize((25, 20))
+home_logo = ImageTk.PhotoImage(home_logo)
+
+
+sign_outl = Image.open('images/sign-out.png')
+sign_outl = sign_outl.resize((25, 20))
+sign_outl = ImageTk.PhotoImage(sign_outl)
+
+
+line_logo = Image.open('images/line.png')
+line_logo = line_logo.resize((25, 1))
+line_logo = ImageTk.PhotoImage(line_logo)
+
 bg_img = Image.open('images/homebg.jpg')
-bg_img = bg_img.resize((tk_width, 700))
+bg_img = bg_img.resize((window_width, 700))
 bg_img = ImageTk.PhotoImage(bg_img)
 
 bg_2 = Image.open('images/bg2.png')
-bg_2 = bg_2.resize((tk_width, 700))
+bg_2 = bg_2.resize((window_width, 700))
 bg_2 = ImageTk.PhotoImage(bg_2)
+
 
 ########################## ADMIN WINDOW
 
-admin_frame = Frame(window)
+admin_frame = Canvas(window)
 ############
 
 admin_label = Label(admin_frame, text="Admin", font=(tk_font, 10), bg=bgcolor)
@@ -819,120 +1200,74 @@ admin_menu_frame_but.bind('<Button>', admin_menu)
 
 ########################## INVENTORY WINDOW FRAME
 
-inven_frame = Frame(admin_frame, bg='red')
+inven_frame = Canvas(admin_frame, bg='red')
 
 ########################## USERS WINDOW FRAME
 
-users_frame = Frame(admin_frame, bg='blue')
+users_frame = Canvas(admin_frame, bg='blue')
 
 ########################## ADMIN MENU WINDOW FRAME
 
-admin_menu_frame = Frame(admin_frame, bg='green')
+admin_menu_frame = Canvas(admin_frame, bg='green')
 
 ########################### ADMIN TRANSACTION WINDOW FRAME
 
-admin_tran_frame = Frame(admin_frame, bg='black')
-########################## USER WINDOW FRAME
+admin_tran_frame = Canvas(admin_frame, bg='black')
+###################################################################################### USER WINDOW FRAME
 
 
-user_frame = Frame(window, bg=bgcolor)
+user_frame = Canvas(window, bg=bgcolor)
 
-##########
-header = Label(user_frame, bg='red')
-header.pack(fill=X, side=TOP)
+bottom_can_bar = Canvas(user_frame,width=window_width,height=35,bg='white')
+bottom_can_bar.pack(side="bottom")
+################################################################
+user_bg_img = Image.open('images/log-in-bg.png')
+user_bg_img = user_bg_img.resize((window_width,window_heigth))
+user_bg_img = ImageTk.PhotoImage(user_bg_img)
 
-top_logo = Label(header, image=logo_small, bg='red')
-top_logo.pack(side='left')
+#sign_in_canvas.create_image(250, 250, image=bg_img)
 
-title_text = Label(header, text="SARduct",
-                   bg=lbcolor,
-                   font=('ink free', 12, "bold")
-                   )
-title_text.pack(side='left')
+user_frame.create_image(227,300,image=user_bg_img)
+####################################
 
-search_button = Button(header,
-                       text="search",
-                       bg='white',
-                       highlightthickness=0,
-                       image=search_logo
-                       # command=lambda: search_product_type(search.get())
-                       )
+bottom_bar_img = Image.open('images/bottom-bar.png')
+bottom_bar_img = bottom_bar_img.resize((window_width,40))
+bottom_bar_img = ImageTk.PhotoImage(bottom_bar_img)
 
-search_button.pack(side="right")
-search = Entry(header,
-               bg="white")
+user_frame.create_image(227,window_heigth-20,image=bottom_bar_img)
 
-search.pack(side="right")
+####################################
+
+menu_button_c = bottom_can_bar.create_image(window_width-35,18,image=menu_logo)
+bottom_can_bar.tag_bind(menu_button_c,"<Enter>",line_move_to_menu)
+bottom_can_bar.tag_bind(menu_button_c,"<Button>",menu)
+
+prof_button_c = bottom_can_bar.create_image(window_width-125,18,image=user_logo)
+bottom_can_bar.tag_bind(prof_button_c,"<Enter>",line_move_to_prof)
+bottom_can_bar.tag_bind(prof_button_c,"<Button>",profile)
+
+cart_button_c = bottom_can_bar.create_image(window_width-225,18,image=product_logo)
+bottom_can_bar.tag_bind(cart_button_c,"<Enter>",line_move_to_cart)
+bottom_can_bar.tag_bind(cart_button_c,"<Button>",cart)
+
+search_button_c = bottom_can_bar.create_image(window_width-325,18,image=search_logo)
+bottom_can_bar.tag_bind(search_button_c,"<Enter>",line_move_to_search)
+
+home_button_c = bottom_can_bar.create_image(window_width-415,18,image=home_logo)
+bottom_can_bar.tag_bind(home_button_c,"<Enter>",line_move_to_home)
+bottom_can_bar.tag_bind(home_button_c,"<Button>",show_products)
+
+line = Label(bottom_can_bar,image=line_logo,bg="black",highlightcolor="black",highlightbackground="black",highlightthickness=0)
+
+####################################
 
 ############
 
-user_frames_but = LabelFrame(user_frame,
-                             bg=bgcolor,
-                             highlightcolor='black',
-                             highlightthickness=1,
-                             highlightbackground='black'
-                             )
-user_frames_but.pack(fill=X)
 
 #
-product_frame_but = Label(user_frames_but,
-                          image=product_logo,
-                          width=30
-                          )
-product_frame_but.pack(side='left')
-product_frame_but.bind('<Button>', show_products)
-
-add_frame_but = Label(user_frames_but,
-                      text='Upload',
-                      width=10
-                      )
-
-add_frame_but.pack(side='left')
-add_frame_but.bind('<Button>', add_product)
-
-#
-cart_frame_but = Label(user_frames_but,
-                       text='Cart',
-                       width=10
-                       )
-
-cart_frame_but.pack(side='left')
-cart_frame_but.bind('<Button>', cart)
-#
-myproducts_but = Label(user_frames_but,
-                       text='Myproducts',
-                       width=10
-                       )
-
-myproducts_but.pack(side='left')
-myproducts_but.bind('<Button>', myproducts)
-#
-user_transact_but = Label(user_frames_but,
-                          text='transaction',
-                          width=10
-                          )
-
-user_transact_but.pack(side='left')
-user_transact_but.bind('<Button>', mytransaction)
-#
-profile_frame_but = Label(user_frames_but,
-                          width=30,
-                          image=user_logo
-                          )
-profile_frame_but.pack(side='left')
-profile_frame_but.bind('<Button>', profile)
-
-#
-menu_fame_but = Label(user_frames_but,
-                      image=menu_logo,
-                      width=30
-                      )
-menu_fame_but.pack(side="right")
-menu_fame_but.bind('<Button>', menu)
-
 ########################## buy frame
 
-buy_frame = Frame(user_frame)
+buy_frame = Canvas(user_frame)
 label = Label(buy_frame, text='BUY')
 label.pack(side=TOP)
 
@@ -951,7 +1286,7 @@ buy_button.pack(side=BOTTOM)
 
 ########################## MENU WINDOW FRAME
 
-menu_frame = Frame(user_frame, bg='black')
+menu_frame = Canvas(user_frame, bg='black')
 bg_menu = Label(menu_frame, image=bg_img)
 bg_menu.pack(expand=True, fill=BOTH)
 
@@ -964,43 +1299,53 @@ log_out.bind('<Button>', user_log_out)
 
 ########################## ADD PRODUCT WINDOW FRAME
 
-sell_frame = Frame(user_frame, bg='yellow')
+sell_frame = Canvas(user_frame, bg='yellow')
 
-product_image = None
-upload_image = Button(sell_frame, command=lambda: upload_image_function())
+upload_image = Button(sell_frame, command=lambda: upload_image_function(), text="Product image")
 upload_image.pack()
 
 upload_name_of_product = Entry(sell_frame)
 upload_name_of_product.pack()
 
-upload_price = Entry(sell_frame)
+upload_price = Entry(sell_frame
+                     )
 upload_price.pack()
 
 upload_stock = Entry(sell_frame)
 upload_stock.pack()
 
-upload_address = Entry(sell_frame)
-upload_address.pack()
-
 upload_contact = Entry(sell_frame)
 upload_contact.pack()
 
-upload_product = Button(sell_frame, command=product_validation)
+upload_product = Button(sell_frame,
+                        command=lambda: save_product(product_img, upload_name_of_product.get(), upload_price.get(),
+                                                     upload_stock.get(), upload_contact.get()), text="Uplaod")
 upload_product.pack()
 ########################## CART WINDOW FRAME
 
-cart_frame = Frame(user_frame, bg='red')
+cart_frame_bg = Image.open('images/bg_ulit.jpg')
+cart_frame_bg = cart_frame_bg.resize((470,610))
+cart_frame_bg = ImageTk.PhotoImage(cart_frame_bg)
+
+cart_frame = Canvas(user_frame)
+cart_frame.create_image(220,256 , image = cart_frame_bg)
 
 ########################## PROFILE WINDOW FRAME
 
-profile_frame = Frame(user_frame,
+profile_frame = Canvas(user_frame,
                       bg=bgcolor,
 
                       )
-bg_prof = Label(profile_frame, image=bg_2)
-bg_prof.pack()
 
-profile_outine = Frame(bg_prof,
+prof_background_img = Image.open('images/profbg.jpg')
+prof_background_img = prof_background_img.resize((470,610))
+prof_background_img = ImageTk.PhotoImage(prof_background_img)
+
+profile_frame.create_image(220,256,image=prof_background_img)
+#bg_prof = Label(profile_frame, image=bg_2)
+#bg_prof.pack()
+
+profile_outine = Frame(profile_frame,
                        highlightcolor='black',
                        highlightthickness=1,
                        highlightbackground='black',
@@ -1053,185 +1398,238 @@ profile_ADDRES = Label(profile_outine,
 profile_address_L.pack()
 profile_ADDRES.pack()
 
-profile_school_L = Label(profile_outine,
-                         text='SCHOOL',
-                         font=(tk_font, 8, 'bold'),
-                         bg=bgcolor)
-profile_SCHOOL = Label(profile_outine,
-                       bg=bgcolor,
-                       font=(tk_font, 18, 'bold')
-                       )
-profile_school_L.pack()
-profile_SCHOOL.pack()
-
-profile_DATE_l = Label(profile_outine,
-                       text='MEMBERSHIP DATE',
-                       font=(tk_font, 8, 'bold'),
-                       bg=bgcolor)
-profile_DATE = Label(profile_outine,
-                     bg=bgcolor,
-                     font=(tk_font, 18, 'bold')
-                     )
-profile_DATE_l.pack()
-profile_DATE.pack()
-
 ########################## PRODUCTS WINDOW FRAME
+product_frame_bg = Image.open('images/bgnanaman.jpg')
+product_frame_bg = product_frame_bg.resize((470,610))
+product_frame_bg = ImageTk.PhotoImage(product_frame_bg)
 
-product_frame = Frame(user_frame, bg='green')
+product_frame = Canvas(user_frame, scrollregion=(0, 0, 400, 400))
+# Bind mouse wheel event to the canvas
+#product_frame.bind("<MouseWheel>", on_mouse_wheel)
+
+#product_frame.create_image(220,256 , image = product_frame_bg)
+background_of_prod_frame = Label(product_frame,image=product_frame_bg)
+
+
+product_frame.bind("<Configure>", lambda e: product_frame.configure(scrollregion=product_frame.bbox("all")))
+product_frame.bind("<MouseWheel>", on_mousewheel)
 
 ########################## USER PRODUCTS WINDOW FRAME
 
-user_products_frame = Frame(user_frame, bg='orange')
+user_products_frame = Canvas(user_frame, bg='orange')
 ########################## USER transaction WINDOW FRAME
+user_transaction_frame_bg = Image.open('images/bg_ulit.jpg')
+user_transaction_frame_bg = user_transaction_frame_bg.resize((470,610))
+user_transaction_frame_bg = ImageTk.PhotoImage(user_transaction_frame_bg)
 
-user_transaction_frame = Frame(user_frame, bg='brown')
+user_transaction_frame = Canvas(user_frame)
+user_transaction_frame.create_image(220,256 , image = user_transaction_frame_bg)
+
+user_transaction_frame = Canvas(user_frame)
 
 ########################## SIGN UP WINDOW FRAME
 
-sign_in_canvas = Canvas(window)
+sign_in_canvas = Canvas(window,bg=bgcolor)
 #########
 
-sign_in_canvas.create_image(250, 250, image=bg_img)
+
+sign_txt_bx = Image.open('images/txt-box.png')
+sign_txt_bx = sign_txt_bx.resize((300, 70))
+sign_txt_bx = ImageTk.PhotoImage(sign_txt_bx)
+
+sign_img_bx = Image.open('images/txt-box.png')
+sign_img_bx = sign_img_bx.resize((100, 50))
+sign_img_bx = ImageTk.PhotoImage(sign_img_bx)
+
+
+back_to_img = Image.open('images/back-arrow.png')
+back_to_img = back_to_img.resize((30, 30))
+back_to_img = ImageTk.PhotoImage(back_to_img)
+
+sign_to_img = Image.open('images/sign-in.png')
+sign_to_img = sign_to_img.resize((160, 80))
+sign_to_img = ImageTk.PhotoImage(sign_to_img)
+
+
+sign_bg_img = Image.open('images/new-.jpg')
+sign_bg_img = sign_bg_img.resize((window_width,window_heigth))
+sign_bg_img = ImageTk.PhotoImage(sign_bg_img)
+
+
+sign_out_img = Image.open('images/sign-out.png')
+sign_out_img = sign_out_img.resize((725, 616))
+sign_out_img = ImageTk.PhotoImage(sign_out_img)
+
+#sign_in_canvas.create_image(250, 250, image=bg_img)
+
+sign_in_canvas.create_image(227,300,image=sign_bg_img)
+
+back_to_log = sign_in_canvas.create_image(20,20,image=back_to_img)
+sign_in_canvas.tag_bind(back_to_log,"<Button>",lambda event:back_to_log_com())
+########
+
 
 ########
-outline = LabelFrame(sign_in_canvas, bg=bgcolor, padx=100, pady=18)
-outline.place(x=35, y=30)
+
+#outline = sign_in_canvas.create_image(230,300,image=sign_out_img)
+#############
+
+######## create logo in log in box
+sign_in_canvas.create_image(220,90,image=logo_med)
+
+######## create log in text
+sign_in_canvas.create_text(220,155,text="Sign up",font=("Segoe UI Black",24,"bold"))
+
+######## create username label
+sign_in_canvas.create_text(120,210,text="Name",font=("Calibre",8,"bold"))
+######## create username label
+sign_in_canvas.create_text(130,260,text="Address",font=("Calibre",8,"bold"))
+######## create username label
+sign_in_canvas.create_text(130,310,text="Username",font=("Calibre",8,"bold"))
+######## create username label
+sign_in_canvas.create_text(130,360,text="Password",font=("Calibre",8,"bold"))
+######## create username label
+sign_in_canvas.create_text(155,410,text="Confirm Password",font=("Calibre",8,"bold"))
 
 #############
 
+name_txt_box = sign_in_canvas.create_image(220,220,image=sign_txt_bx)
+
+address_txt_box = sign_in_canvas.create_image(220,270,image=sign_txt_bx)
+
+username_txt_box = sign_in_canvas.create_image(220,320,image=sign_txt_bx)
+
+password_txt_box = sign_in_canvas.create_image(220,370,image=sign_txt_bx)
+
+confirm_txt_box = sign_in_canvas.create_image(220,420,image=sign_txt_bx)
+
+img_box = sign_in_canvas.create_image(220,460,image=sign_img_bx)
+sign_in_canvas.tag_bind(img_box,"<Button>",lambda event: open_id_image())
+############
 # logo
-sign_logo = Label(outline, image=logo_med, bg=bgcolor)
-sign_logo.pack()
+#sign_in_canvas.create_image(220,50,image=logo_med)
 
 # sign label
-sign_label = Label(outline,
-                   bg=bgcolor,
-                   text='Sign in',
-                   font=(tk_font, 18, 'bold'),
-                   height=2)
-sign_label.pack()
+#sign_in_canvas.create_text(220,90,text="Sign in",font=(tk_font,20,"bold"))
 
 # insert user profile
 
-image = None
-insert_profile = Button(outline, text="Upload photo",
-                        bg='red',
-                        font=(tk_font, 8),
-                        command=lambda: open_image())
-insert_profile.pack(anchor=W)
-
-# sign user full name
-sign_user_name_label = Label(outline,
-                             text="Name",
-                             font=(tk_font, 8),
-                             height=1)
-sign_user_name_label.pack(anchor=W)
-sign_user_name = Entry(outline, font=(tk_font, 8))
-sign_user_name.pack(anchor=W)
-
-# sign user school
-sign_user_school_label = Label(outline,
-                               text="School",
-                               font=(tk_font, 8),
-                               height=1)
-sign_user_school_label.pack(anchor=W)
-sign_user_school = Entry(outline, font=(tk_font, 8))
-sign_user_school.pack(anchor=W)
-
-# sign address
-sign_user_address_label = Label(outline,
-                                text="Address",
-                                font=(tk_font, 8),
-                                height=1)
-sign_user_address_label.pack(anchor=W)
-sign_user_address = Entry(outline, font=(tk_font, 8), width=30)
-sign_user_address.pack(anchor=W)
-
-# sign user age
-age_label = Label(outline,
-                  bg=bgcolor,
-                  text="AGE",
-                  font=(tk_font, 8),
-                  height=1
-                  )
-
-age_label.pack(anchor=W
-               )
-age = Entry(outline,
-            highlightthickness=2,
-            highlightcolor='black',
-            width=30,
-            font=(tk_font, 9)
-            )
-age.pack(anchor=W)
-
-# sign user name
-suser_name_label = Label(outline,
-                         text="USERNAME",
-                         bg=bgcolor,
-                         font=(tk_font, 8),
-                         height=1
-                         )
-suser_name_label.pack(anchor=W)
-
-# sign user username entry
-susername = Entry(outline,
-                  highlightthickness=2,
-                  highlightcolor='black',
-                  width=30,
-                  font=(tk_font, 8))
-susername.pack(anchor=W)
-
-# sign user password
-spass_label = Label(outline,
-                    text="PASSWORD",
-                    bg=bgcolor,
-                    font=(tk_font, 8),
-                    height=1)
-
-spass_label.pack(anchor=W)
-
-# sign user password entry
-s_password = Entry(outline,
-                   highlightthickness=2,
-                   highlightcolor='black',
-                   width=30,
+insert_id = Button(sign_in_canvas, text="Upload id",
+                   bg='red',
                    font=(tk_font, 8),
-                   show="*")
-s_password.pack(anchor=W)
+                   command=lambda: open_id_image())
+#insert_id.place(x=80,y=150)
+
+
+
+
+######## create name entry
+sign_user_name = Entry(sign_in_canvas,
+                        width=33,
+                        font=(tk_font, 10),
+                        bg="#F3F2ED",
+                        bd=0)
+######## display the name entry
+sign_user_name.place(x=111,y=227)
+
+######## bind the username entry,this binding appear the line inside of entry box if the cursor enter
+#sign_user_name_label.bind("<Enter>",lambda event:enter_txt_U())
+
+######## create line inside of entry box
+usr_name_line_S = sign_in_canvas.create_line(111,246,340,246,fill="black",width=1)
+
+######## bind the username entry,this binding appear the line inside of entry box if the cursor enter
+#sign_user_name_label.bind("<Enter>",lambda event:enter_txt_U())
+
+#create sign address entry
+sign_user_address = Entry(sign_in_canvas,
+                        width=33,
+                        font=(tk_font, 10),
+                        bg="#F3F2ED",
+                        bd=0)
+sign_user_address.place(x=111,y=276)
+
+######## create line inside of entry box
+address_line_S = sign_in_canvas.create_line(111,295,340,295,fill="black",width=1)
+
+######## create sign user username entry
+sign_in_username = Entry(sign_in_canvas,
+                        width=33,
+                        font=(tk_font, 10),
+                        bg="#F3F2ED",
+                        bd=0)
+sign_in_username.place(x=111,y=327)
+
+######## create line inside of entry box
+username_line_S = sign_in_canvas.create_line(111,346,340,346,fill="black",width=1)
+
+####### create sign user password entry
+sign_in_password = Entry(sign_in_canvas,
+                        width=33,
+                        font=(tk_font, 10),
+                        bg="#F3F2ED",
+                        bd=0)
+sign_in_password.place(x=111,y=376)
+
+######## create line inside of entry box
+pass_line_S = sign_in_canvas.create_line(111,395,340,395,fill="black",width=1)
 
 # confirm pass word label / input
-confirm_pass_label = Label(outline,
-                           text="CONFIRM PASSWORD",
-                           bg=bgcolor,
-                           font=(tk_font, 8),
-                           height=1
-                           )
-confirm_pass_label.pack(anchor=W)
 
 # sign confirm password entry
-confirm_pass = Entry(outline,
-                     highlightthickness=2,
-                     highlightcolor='black',
-                     width=30,
-                     font=(tk_font, 8),
-                     show="*")
-confirm_pass.pack(anchor=W)
+confirm_pass = Entry(sign_in_canvas,
+                        width=33,
+                        font=(tk_font, 10),
+                        bg="#F3F2ED",
+                        bd=0,
+                        show="*")
+confirm_pass.place(x=111,y=427)
 
-# sign in button
-sign_buttton = Button(outline,
-                      text='Sign in',
-                      bg=lbcolor,
-                      command=sign_in_validation,
-                      font=(tk_font, 10),
-                      width=10)
-sign_buttton.pack()
+######## create line inside of entry box
+confirm_line_S = sign_in_canvas.create_line(111,446,340,446,fill="black",width=1)
+
+
+# create sign in button
+sign_in_button = sign_in_canvas.create_image(230,530,image=sign_to_img)
+sign_in_canvas.tag_bind(sign_in_button,"<Button>",lambda event: save_account(id_picture, sign_user_name.get(),sign_user_address.get(),
+sign_in_username.get(), sign_in_password.get()))
+
+#try:    # sign_buttton = Button(outline,
+#bg=text_color,image=sign_to_img,
+#command=lambda: save_account(id_picture, sign_user_name.get(), age.get(), sign_user_address.get(),
+#sign_in_username.get(), sign_in_password.get()),
+         #                 font=(tk_font, 10),
+         #                 width=10)
+#    sign_buttton.pack()
+#except Exception as e:
+ #   messagebox.showerror("Sign in error", "May kulang !\n Ayusin mo")
+
+
+
 
 ########################## LOG IN  PRODUCT WINDOW FRAME
-
-
+#create window for log in
 log_in_canvas = Canvas(window)
 #########
+
+crt_acc_btn = Image.open('images/crt_acc.png')
+crt_acc_btn = crt_acc_btn.resize((230, 60))
+crt_acc_btn = ImageTk.PhotoImage(crt_acc_btn)
+
+log_outl = Image.open('images/log_out.png')
+log_outl = log_outl.resize((430, 460))
+log_outl = ImageTk.PhotoImage(log_outl)
+
+
+txt_bx = Image.open('images/txt-box.png')
+txt_bx = txt_bx.resize((300, 70))
+txt_bx = ImageTk.PhotoImage(txt_bx)
+
+
+log_btn = Image.open('images/log-in.png')
+log_btn = log_btn.resize((170, 70))
+log_btn = ImageTk.PhotoImage(log_btn)
+
 
 log_in_b = Image.open('images/log in.png')
 log_in_b = log_in_b.resize((60, 20))
@@ -1241,126 +1639,161 @@ sign_in_b = Image.open('images/signin.png')
 sign_in_b = sign_in_b.resize((60, 20))
 sign_in_b = ImageTk.PhotoImage(sign_in_b)
 
+
+moon_img = Image.open('images/switch (1).png')
+moon_img = moon_img.resize((40, 40))
+moon_img = ImageTk.PhotoImage(moon_img)
+
+
+sun_img = Image.open('images/switch.png')
+sun_img = sun_img.resize((40, 40))
+sun_img = ImageTk.PhotoImage(sun_img)
+
+
+log_bg_img = Image.open('images/new-.jpg')
+log_bg_img = log_bg_img.resize((window_width, window_heigth))
+log_bg_img = ImageTk.PhotoImage(log_bg_img)
+
+show_pass_img = Image.open('images/eye2.png')
+show_pass_img = show_pass_img.resize((20, 15))
+show_pass_img = ImageTk.PhotoImage(show_pass_img)
+
+
+hide_pass_img = Image.open('images/eye2.png')
+hide_pass_img = hide_pass_img.resize((20, 15))
+hide_pass_img = ImageTk.PhotoImage(hide_pass_img)
+
 ######## background
-log_in_canvas.create_image(250, 250, image=bg_img)
+log_in_canvas.create_image(223, 300, image=log_bg_img)
 ###########
-log_in_outline = Frame(log_in_canvas,
-                       bg=bgcolor,
-                       highlightcolor='black',
-                       highlightthickness=1,
-                       highlightbackground='black',
-                       padx=100,
-                       pady=18
-                       )
+######## password show config
+pass_btn_config = log_in_canvas.create_image(370, 325, image=show_pass_img)
+log_in_canvas.tag_bind(pass_btn_config,"<Button>",lambda event: show_password())
 
-log_in_outline.place(x=60, y=60)
+
+switch= log_in_canvas.create_image(25,25,image=sun_img)
+
+log_in_canvas.tag_bind(switch,"<Button>",lambda event: change_bg_color())
+
+######## log in box background
+#log_in_canvas.create_image(227,300,image=log_outl)
+
+######## create logo in log in box
+log_in_canvas.create_image(220,120,image=logo_med)
+
+######## create log in text
+log_in_canvas.create_text(220,185,text="Log in",font=("Segoe UI Black",24,"bold"))
+
+######## create entry box
+txt_boxU = log_in_canvas.create_image(220,260,image=txt_bx)
+txt_boxP = log_in_canvas.create_image(220,310,image=txt_bx)
+
+######## create username label
+username_txt = log_in_canvas.create_text(130,250,text="Username",font=("Calibre",8,"bold"))
+
+######## create password label
+password_txt = log_in_canvas.create_text(130,300,text="Password",font=("Calibre",8,"bold"))
+
+######## create button for log in
+btn_log_in = log_in_canvas.create_image(225,390,image=log_btn)
+log_in_canvas.tag_bind(btn_log_in,"<Button>",lambda event:log_in_validation())
+
+######## create button for create account
+log_in_canvas.create_text(225,430,text="Don't have an account?")
+btn_crt_acc = log_in_canvas.create_image(233,470,image=crt_acc_btn)
+log_in_canvas.tag_bind(btn_crt_acc,"<Button>",lambda event:show_sign_in_frame())
+
 ############
-log_in_logo = Label(log_in_outline,
-                    image=logo_med,
-                    bg=bgcolor
-                    )
-log_in_logo.pack()
-###########
-log_in = Label(log_in_outline,
-               text='Log in',
-               foreground='black',
-               font=(tk_font, 23),
-               bg=bgcolor
-               )
-log_in.pack()
-###########
-space1 = Label(log_in_outline, bg=bgcolor)
-space1.pack()
-#########
-log_in_username_label = Label(log_in_outline,
-                              text='Username',
-                              foreground='black',
-                              font=(tk_font, 13),
-                              bg=bgcolor
-                              )
-log_in_username_label.pack()
-log_in_username = Entry(log_in_outline,
-                        highlightthickness=2,
-                        highlightcolor='black',
-                        width=25,
+######## create username entry
+log_in_username = Entry(log_in_canvas,
+                        width=33,
+
+                        font=(tk_font, 10),
+                        bg="#F3F2ED",
+                        bd=0)
+######## display the username entry
+log_in_username.place(x=111,y=267)
+######## create show and hide password button
+######## bind the username entry,this binding appear the line inside of entry box if the cursor enter
+log_in_username.bind("<Enter>",lambda event:enter_txt_U())
+
+######## create line inside of entry box
+usr_name_line = log_in_canvas.create_line(111,286,340,286,fill="#F3F2ED",width=1)
+
+######### create password entry
+log_in_password = Entry(log_in_canvas,
+                        width=33,
                         show="*",
-                        font=(tk_font, 9))
-log_in_username.pack()
-#########
+                        bg="#F3F2ED",
+                        font=(tk_font, 10),
+                        bd=0)
 
-log_in_password_label = Label(log_in_outline,
-                              text='Password',
-                              foreground='black',
-                              font=(tk_font, 13),
-                              bg=bgcolor
-                              )
-log_in_password_label.pack()
-log_in_password = Entry(log_in_outline,
-                        highlightthickness=2,
-                        highlightcolor='black',
-                        width=25,
-                        font=(tk_font, 9))
-log_in_password.pack()
+######## display the password entry
+log_in_password.place(x=111,y=315)
 
-##########
-error = Label(log_in_outline, bg=bgcolor, height=2)
-error.pack()
-##########
-log_in_button = Button(log_in_outline,
-                       command=log_in_validation,
-                       text='Log in',
-                       foreground='white',
-                       font=('monosacpe', 10, 'bold'),
-                       bg='red',
-                       highlightbackground='black',
-                       highlightthickness=2,
-                       highlightcolor='black')
-log_in_button.pack()
-#########
-space = Label(log_in_outline, bg=bgcolor)
-space.pack()
-##########
-log_in_create_acc_button = Button(log_in_outline,
-                                  command=show_sign_in_frame,
-                                  text='Sign in',
-                                  foreground='white',
-                                  font=('monosacpe', 10, 'bold'),
-                                  bg='red',
-                                  highlightbackground='black',
-                                  highlightthickness=2,
-                                  highlightcolor='black'
-                                  )
-log_in_create_acc_button.pack()
-#########
-space2 = Label(log_in_outline, bg=bgcolor, height=2)
-space2.pack()
+######## create line inside of entry box
+usr_p_line = log_in_canvas.create_line(111,336,340,336,fill="#F3F2ED",width=1)
+
+######## bind the password entry,this binding appear the line inside of entry box if the cursor enter
+log_in_password.bind("<Enter>",lambda event:enter_txt_P())
+
+
+
 ########################## WELCOCME HOME WINDOW FRAME
+
 con = Image.open('images/icons8-log-in-50.png')
 con = ImageTk.PhotoImage(con)
 
 logo_spar = Image.open('images/logo_spar.png')
-logo_spar = logo_spar.resize((340, 380))
+logo_spar = logo_spar.resize((400, 380))
 logo_spar = ImageTk.PhotoImage(logo_spar)
+
+get_start_img = Image.open('images/getstartedbtn.png')
+get_start_img = get_start_img.resize((120, 60))
+get_start_img = ImageTk.PhotoImage(get_start_img)
+
+
+wel_bg = Image.open('images/new-.jpg')
+wel_bg = wel_bg.resize((700, 700))
+wel_bg = ImageTk.PhotoImage(wel_bg)
+
+myLogo = Image.open('images/sa.png')
+myLogo = myLogo.resize((170, 170))
+myLogo = ImageTk.PhotoImage(myLogo)
+
+spar_logo = Image.open('images/spartan.png')
+spar_logo = spar_logo.resize((80, 80))
+spar_logo = ImageTk.PhotoImage(spar_logo)
 #########
 
 home_canvas = Canvas(window, bg=bgcolor)
 
-home_canvas.create_image(250, 250, image=bg_2)
+home_canvas.create_image(110, 250, image=wel_bg)
+home_canvas.create_image(230, 220, image=myLogo)
+#home_canvas.create_image(220,100,image=spar_logo)
 
+tagline = f"           A  BatState-U shop that\nleads innovation and transform lives"
+bsu_tagline = home_canvas.create_text(230,330,text="",font=("Bahnschrift Light Condensed",17),fill="black")
+write_text(1)
 home_canvas.create_image(30, 30,
                          image=logo_small)
-home_canvas.create_image(230, 120, image=logo_spar)
+#home_canvas.create_image(230, 120, image=logo_spar)
 #########
-home_con_button = Button(home_canvas,
-                         image=con,
-                         font=(tk_font, 13, "bold"),
-                         bg='red',
-                         command=show_log_in_frame, relief=GROOVE)
-home_con_button.place(x=220, y=515)
+#home_con_button = Button(home_canvas,
+                      #   image=con,
+                       #  font=(tk_font, 13, "bold"),
+                       #  bg='red',
+                       #  command=show_log_in_frame, relief=GROOVE)
+#home_con_button.place(x=220, y=515)
+get_started_button = home_canvas.create_image(225,495,image=get_start_img)
 
+home_canvas.tag_bind(get_started_button,"<Button>",lambda event: show_log_in_frame())
 ################################################################
 
 if __name__ == '__main__':
+    s = ttk.Style()
+    s.theme_use('clam')
+    restore_db_to_list()
     welcome()
 
 window.mainloop()
