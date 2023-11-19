@@ -211,19 +211,29 @@ class Products(Accounts):
                          accounts_list[user_index].get_password())
         # products components
         self.prd_indx = prd_indx
+        #convert byte to image            
         convert_to_img = Image.open(io.BytesIO(image_of_product))
         covert_to_img = convert_to_img.resize((40,40))
         convert_to_img = ImageTk.PhotoImage(covert_to_img)
+
+        #store the converted product image           
         self.product_image = convert_to_img
+        #store the byte image            
         self.image_of_product = image_of_product
+        #ID of the product and seller            
         self.id_num = id_num
+        #type of the produc            
         self.product_type = product_type
+        #product price             
         self.product_price = int(product_price)
+        #prodcut stock             
         self.product_stock = int(product_stock)
+        #seller contact             
         self.seller_contact = seller_contact
+        #store product index number              
         self.product_index = product_index
 
-        # time
+        # define time
         self.local_t = time.localtime()
         self.date_posted = datetime.now().date()
         self.time_posted = time.strftime("%H:%M:%S", self.local_t)
@@ -241,12 +251,21 @@ class Products(Accounts):
         self.product_name_f = Label(self.product_container, text=self.product_type)
         self.product_dt_f = Label(self.product_container,
                                   text=f"DATE POSTED: {self.date_posted}\nTIME: {self.time_posted}")
+
+        #bind the product frame
+        #if the cursor point inside of the frame the hideny widgets appear          
         self.product_container.bind('<Enter>', self.wide_view)
+                     
+        #if the cursor leave the widgets hide it again          
         self.product_container.bind('<Leave>', self.small_view)
+        #button the see the seller information            
         self.view_profile = Button(self.product_container, text='view', command=self.profile_view)
-        # buy button
+        
+        # create buy button
         self.buy_button = Button(self.product_container, text='add to cart')
-        self.insert_to_prdtcs_F()
+
+        #call the insert_to_prdtcs_F method           
+        insert_to_prdtcs_F(self)
 
         # cart frame
         self.cart_f = LabelFrame(cart_frame)
@@ -300,15 +319,28 @@ class Products(Accounts):
     def get_index(self):
         return self.product_index
 
+    #show the products to the products frame
+    #check if the stock has 0 percent then remove 
     def show(self):
+        #create access for product frame
         global product_frame
-        product_frame.bind("<Key>", self.move)
+        
         index = user_index
+
+        #connect to db named Products 
         conn = sqlite3.connect("Products.db")
+        
+        #create cursor
         c = conn.cursor()
+
+        #the fucntion checking if the stock has 0 then remove/delete from lists and db
         if self.product_stock <= 0:
+
+            #function to delete from db if zero percent stock
             delete = f"DElETE FROM products WHERE id={self.id_num}"
             c.execute(delete)
+            
+            #change the display configuration 
             conn.commit()
             conn.close()
             self.product_quan_f.config(text='sold out')
@@ -318,16 +350,16 @@ class Products(Accounts):
             self.myproduct_container.pack_forget()
 
         else:
-            pass
+            pass 
+            
+        #save and close the program
         conn.commit()
         conn.close()
 
-    def move(self, event):
-        self.product_container.place(x=200, y=self.product_container.winfo_y() + 10)
-
-        window.update()
+    #this insert the new product to products frame
     def insert_to_prdtcs_F(self):
-        global position_of_prdcts
+        global position_of_prdcts #create access to position_of_prdcts variable 
+        
         self.product_image_f.pack()
         self.product_name_f.pack()
         self.product_price_f.pack()
@@ -335,23 +367,31 @@ class Products(Accounts):
         self.product_contact_f.pack()
         self.product_dt_f.pack()
         self.buy_button.config(command=lambda: self._add_tocart())
+        
+        #insert the frame to the product frame 
         product_frame.create_window((0, position_of_prdcts), window=self.product_container,width=window_width)
 
+
+        #bind the new product to make it scrollable 
         self.product_container.bind("<Configure>", lambda e: product_frame.configure(scrollregion=product_frame.bbox("all")))
         self.product_container.bind("<MouseWheel>", on_mousewheel_prdcts_F)
         
         #increase and create new position of uploaded products by 150
         position_of_prdcts += 150
-        
+
+    #this insert the new cart to products frame
     def insert_to_cart_F(self):
-        global position_of_each_cart
+        
+        global position_of_cart #create access to position_of_cart variable 
+        
+        #insert the frame to the product frame 
         cart_frame.create_window((0, position_of_each_cart), window=self.cart_f,width=window_width)
 
+        #bind the new cart to make it scrollable 
         self.cart_f.bind("<Configure>", lambda e: cart_frame.configure(scrollregion=cart_frame.bbox("all")))
         self.cart_f.bind("<MouseWheel>", on_mousewheel_cart_F)
 
-        
-        #self.product_container.config(width=window_width)
+        position_of_cart += 150       
     
     def unshow(self):
         self.product_dt_f.pack_forget()
